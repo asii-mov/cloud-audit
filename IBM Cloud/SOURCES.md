@@ -21,3 +21,5 @@ The following sources support the implementation and manual test plan:
 | [Identity endpoint migration](https://github.com/ibm-cloud-docs/vpc/blob/4133e597cc1515f14d55fb5c5b72580482c1aa8d/metadata-identity-migration.md) | Current `/identity/v1/token` and `/identity/v1/iam_tokens` paths replacing legacy paths |
 
 The live VPC and metadata requests pin API version `2025-10-14`. Review IBM's change logs and current service documentation before expanding the supported API surface. Live IBM compatibility has not been validated in an account.
+
+For CLI-session authentication, the implementation was compared with the user-supplied collector's existing-login and targeted-account workflow. IBM documents both [`ibmcloud iam bearer-token` and `ibmcloud iam oauth-tokens`](https://github.com/ibm-cloud-docs/cli/blob/7f6f62b8434d4adc6413dcb769dae8b4d432c4ec/reference/ibmcloud/cli_api_policy.md#ibmcloud-iam-bearer-token) as current-session token retrieval commands. The collector captures their output in memory and omits it from saved evidence.

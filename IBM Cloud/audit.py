@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shlex
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -56,7 +57,8 @@ class Evidence:
         if isinstance(value, dict):
             return {str(k): "[REDACTED]" if re.sub(r"[^a-z]", "", str(k).lower()) in {
                 "apikey", "accesstoken", "refreshtoken", "authorization", "password",
-                "secret", "clientsecret", "userdata", "privatekey", "token", "idtoken"
+                "secret", "clientsecret", "userdata", "privatekey", "token", "idtoken",
+                "iamtoken", "iamrefreshtoken"
             } else self.clean(v) for k, v in value.items()}
         if isinstance(value, list):
             return [self.clean(v) for v in value]
@@ -69,6 +71,16 @@ class Evidence:
 
     def note(self, text):
         self.lines.append(f"[{now()}] REVIEW: {self.clean(text)}")
+
+    def command(self, command, status):
+        # CLI authentication output can contain bearer/refresh tokens. Never persist it.
+        event = self.clean({"time": now(), "label": "CLI authentication/context check",
+                            "command": command, "status": status,
+                            "output": "Omitted: authentication/context output may contain credentials"})
+        self.events.append(event)
+        self.lines.extend(["", f"[{event['time']}] CLI authentication/context check",
+                           "tester@ibm-audit$ " + shlex.join(self.clean(command)),
+                           f"Exit status: {status}", event["output"]])
 
     def request(self, label, method, url, status, response, body=None, authenticated=False, headers=None, form=False):
         event = self.clean({"time": now(), "label": label, "method": method,
@@ -337,6 +349,89 @@ def token_account(token):
         return None
 
 
+def cli_output(executable, arguments, evidence):
+    """Capture only fixed, noninteractive CLI authentication/context commands."""
+    if tuple(arguments) not in {("target",), ("iam", "bearer-token"), ("iam", "oauth-tokens")}:
+        raise AuditError("CLI command is outside the authentication allowlist")
+    command = [executable, *arguments]
+    try:
+        result = subprocess.run(command, stdin=subprocess.DEVNULL, capture_output=True,
+                                text=True, timeout=45, check=False, shell=False,
+                                env={**os.environ, "LC_ALL": "C", "LANG": "C", "NO_COLOR": "1"})
+    except FileNotFoundError:
+        evidence.command(command, "NOT_FOUND")
+        raise AuditError("IBM Cloud CLI not found. Install ibmcloud or select --auth api-key.") from None
+    except (OSError, subprocess.TimeoutExpired):
+        evidence.command(command, "ERROR")
+        raise AuditError("IBM Cloud CLI could not complete the authentication/context check. Check the local CLI session.") from None
+    evidence.command(command, result.returncode)
+    return result
+
+
+def cli_target_account(output):
+    """Use the existing CLI target, matching the original collector's scope guard."""
+    output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+    lines = re.findall(r"(?im)^[ \t]*Account[ \t]*:[ \t]*([^\r\n]*)", output)
+    ids = re.findall(r"\b[a-fA-F0-9]{32}\b", lines[0]) if len(lines) == 1 else []
+    if len(ids) != 1:
+        raise AuditError("No unambiguous CLI account target. Run ibmcloud login, then ibmcloud target -c ACCOUNT_ID.")
+    return ids[0].lower()
+
+
+def authenticate(args, evidence):
+    key = os.environ.get("IBMCLOUD_API_KEY") or os.environ.get("IBM_CLOUD_API_KEY")
+    mode = args.auth if args.auth != "auto" else ("api-key" if key else "cli")
+    evidence.note(f"The tester selected {mode} authentication.")
+    client = Client(IAM, evidence)
+    if mode == "api-key":
+        if not args.account_id:
+            raise AuditError("API-key authentication requires --account-id or ACCOUNT_ID.")
+        if not key:
+            raise AuditError("API-key authentication requires IBMCLOUD_API_KEY or IBM_CLOUD_API_KEY. Use --auth cli for an existing ibmcloud login.")
+        evidence.protect(key)
+        result = client.call("/identity/token", "Authenticate auditor with API key", method="POST", form=True,
+                             body={"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": key})
+        if not isinstance(result.get("access_token"), str) or not result["access_token"]:
+            raise AuditError("IAM did not return an access token")
+        client.token = result["access_token"]
+        evidence.protect(client.token)
+        return client, args.account_id
+
+    target = cli_output(args.cli, ["target"], evidence)
+    if target.returncode:
+        raise AuditError("IBM Cloud CLI target check failed. Log in and select the intended account before running the scan.")
+    account = cli_target_account(target.stdout)
+    if args.account_id and args.account_id != account:
+        raise AuditError("ACCOUNT_ID/--account-id differs from the CLI's targeted account. Select the intended CLI account; collection was not attempted.")
+    result = cli_output(args.cli, ["iam", "bearer-token"], evidence)
+    if result.returncode:
+        # Older CLI versions expose the session through oauth-tokens instead.
+        result = cli_output(args.cli, ["iam", "oauth-tokens"], evidence)
+        if result.returncode:
+            raise AuditError("IBM Cloud CLI could not supply an IAM token. Renew your ibmcloud login (ibmcloud login --sso for SSO), then retry. No API-key fallback was attempted.")
+        tokens = re.findall(r"(?im)^\s*IAM token:\s*(?:Bearer\s+)?([^\s]+)\s*$", result.stdout)
+        if len(tokens) != 1:
+            raise AuditError("Unrecognized CLI OAuth output. Update the IBM Cloud CLI to a version supporting iam bearer-token.")
+        token = tokens[0]
+    else:
+        token = result.stdout.strip()
+        if token.lower().startswith("bearer "):
+            token = token[7:].strip()
+    # Accept only a token, never verbose command output as an Authorization header.
+    if not re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", token):
+        raise AuditError("CLI returned an invalid bearer-token format; update the IBM Cloud CLI and renew the session.")
+    evidence.protect(token)
+    after = cli_output(args.cli, ["target"], evidence)
+    if after.returncode or cli_target_account(after.stdout) != account:
+        raise AuditError("CLI account target changed while acquiring credentials. Collection was not attempted; retry with a stable CLI session.")
+    claimed_account = token_account(token)
+    if claimed_account and claimed_account.lower() != account:
+        raise AuditError("CLI token account context differs from its target. Renew the login for the intended account before collecting.")
+    client.token = token
+    evidence.note(f"The tester verified CLI account {account} and reused its session. The CLI target and region were not changed.")
+    return client, account
+
+
 def collect(client, account, regions, evidence):
     inventory, gaps = {}, []
 
@@ -471,8 +566,11 @@ def parser():
         sub.add_argument("--out", help="New evidence directory; existing directories are never overwritten")
         if name == "scan":
             sub.add_argument("--key-age-days", type=int, default=90)
-        if name == "scan":
-            sub.add_argument("--account-id", default=os.environ.get("ACCOUNT_ID"))
+            sub.add_argument("--auth", choices=("auto", "cli", "api-key"), default="auto",
+                             help="auto uses an API key if set, otherwise the existing IBM Cloud CLI session")
+            sub.add_argument("--cli", default="ibmcloud", help="IBM Cloud CLI executable for --auth cli")
+            sub.add_argument("--account-id", default=os.environ.get("ACCOUNT_ID"),
+                             help="Expected account ID; defaults to ACCOUNT_ID or the CLI's targeted account")
             sub.add_argument("--region", action="append", default=[], help="Repeat for each VPC region in scope")
         if name == "metadata":
             sub.add_argument("--context", required=True, help="Instance/workload and OS user or container identity for this test")
@@ -494,11 +592,10 @@ def main(argv=None):
         if region and not re.fullmatch(r"[a-z]{2}-[a-z]+", region):
             p.error("region must be an IBM regional identifier such as us-south")
     if args.command == "scan":
-        if not args.account_id or not re.fullmatch(r"[a-fA-F0-9]{32}", args.account_id):
+        if args.account_id is not None and not re.fullmatch(r"[a-fA-F0-9]{32}", args.account_id):
             p.error("--account-id or ACCOUNT_ID must contain a 32-character account ID")
-        key = os.environ.get("IBMCLOUD_API_KEY") or os.environ.get("IBM_CLOUD_API_KEY")
-        if not key:
-            p.error("set IBMCLOUD_API_KEY securely in the process environment")
+        if args.account_id:
+            args.account_id = args.account_id.lower()
     if args.command == "metadata":
         if bool(args.profile_id) != bool(args.expect_profile):
             p.error("--profile-id and --expect-profile must be supplied together")
@@ -511,19 +608,14 @@ def main(argv=None):
         p.error(f"cannot create output directory ({type(exc).__name__}); use a new --out path")
     failed = False
     if args.command == "scan":
-        evidence.protect(key)
-        client = Client(IAM, evidence)
         try:
-            result = client.call("/identity/token", "Authenticate auditor", method="POST", form=True,
-                                 body={"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": key})
-            if not result.get("access_token"):
-                raise AuditError("IAM did not return an access token")
-            client.token = result["access_token"]
+            client, args.account_id = authenticate(args, evidence)
             data, gaps = collect(client, args.account_id, args.region, evidence)
             findings = analyze(data, args.key_age_days)
             failed = bool(data.get("collection_errors"))
         except AuditError as exc:
             data, findings, gaps, failed = {}, [], [str(exc)], True
+            print("Scan stopped: " + evidence.clean(str(exc)), file=sys.stderr)
     else:
         data, findings, gaps = metadata(args, evidence)
         failed = not data.get("identity_token_issued") or any("HTTP" in g or "failure" in g or "did not return" in g or "did not include" in g for g in gaps)

@@ -1,6 +1,6 @@
 # IBM Cloud IAM service-to-service audit
 
-Python 3.10+; standard library only. No package installation is needed.
+Python 3.10+; standard library only. No Python package installation is needed. CLI authentication additionally requires the IBM Cloud CLI and an existing login.
 
 The standalone `audit.py` script collects IAM configuration, correlates workload identities with grants, and writes an engagement-style transcript that can be displayed with `cat`. Copy this one Python file to the machine where you will run the audit; no other source files are required. You run the commands in your own account.
 
@@ -47,20 +47,44 @@ Use an auditor identity with access to read the selected account's service-ID gr
 
 IBM list APIs can return only the objects visible to the caller, sometimes with HTTP 200 and an empty list. A successful run is not proof of account-wide visibility. API-key metadata enumeration does not retrieve secret API-key values. The scan does not enumerate all human users' API keys or test stolen credentials.
 
-In your own shell, supply the key without placing its value in command history:
+To reuse your existing `ibmcloud` login, as in the original CLI-based collector:
+
+```bash
+ibmcloud target
+python audit.py scan --auth cli --region us-south --out output/account-review
+cat output/account-review/transcript.txt
+```
+
+If you need to sign in first, run `ibmcloud login` (or `ibmcloud login --sso` for SSO), then select your account with `ibmcloud target -c ACCOUNT_ID`. These are actions you perform locally; the collector never starts an interactive login or changes your CLI target/region. With CLI authentication, `--account-id` or `ACCOUNT_ID` is an optional expected account: if supplied, it must match the current target. If omitted, the targeted account is used.
+
+The collector obtains the session's IAM token using `ibmcloud iam bearer-token`, with `ibmcloud iam oauth-tokens` as a compatibility fallback for older CLI versions. CLI authentication output is never written to the transcript or JSON evidence; only the command and exit status are recorded. The token is held in memory and used for the existing REST collection. This adds CLI-session authentication; it does not replace collection with the commands from your previous script. Use `--cli /path/to/ibmcloud` if needed.
+
+Authentication selection is explicit:
+
+| Option | Behavior |
+| --- | --- |
+| `--auth cli` | Use the current CLI session even if an API-key environment variable is set |
+| `--auth api-key` | Require an API key and `ACCOUNT_ID` or `--account-id` |
+| `--auth auto` (default) | Use an API key if present; otherwise use the CLI session |
+
+There is no switch to a different authentication identity after failure. If an old or unwanted API key is exported while your CLI session works, choose `--auth cli`.
+
+For API-key authentication, supply the key in your own shell without placing its value in command history:
 
 ```bash
 read -r -s -p 'IBM Cloud API key: ' IBMCLOUD_API_KEY
 export IBMCLOUD_API_KEY
 export ACCOUNT_ID='YOUR_32_CHARACTER_ACCOUNT_ID'
-python audit.py scan --region us-south --region eu-gb --out output/account-review
+python audit.py scan --auth api-key --region us-south --region eu-gb --out output/account-review
 unset IBMCLOUD_API_KEY
 cat output/account-review/transcript.txt
 ```
 
-Use a key scoped to the intended account. Regional VPC calls are skipped with a collection error unless the IAM-issued token's account context matches the selected account. This context check is not an independent JWT signature validation. `--account-id` overrides `ACCOUNT_ID`; `IBM_CLOUD_API_KEY` is also accepted. Omit `--region` for an IAM-only review. The default key-age review threshold is 90 days; change it with `--key-age-days`. It is an engagement threshold, not an IBM-mandated limit.
+Use a session or key scoped to the intended account. Regional VPC calls are skipped with a collection error unless the IAM-issued token's account context matches the selected account. This context check is not an independent JWT signature validation. `--account-id` overrides `ACCOUNT_ID`; `IBM_CLOUD_API_KEY` is also accepted for API-key authentication. Omit `--region` for an IAM-only review. The default key-age review threshold is 90 days; change it with `--key-age-days`. It is an engagement threshold, not an IBM-mandated limit.
 
-The account scan issues GET requests after exchanging the auditor's API key for a token. It does not change policies, credentials or resource configuration. Required HTTPS destinations are `iam.cloud.ibm.com` and each selected `<region>.iaas.cloud.ibm.com`. TLS verification remains enabled, redirects are refused, and pagination is restricted to the original API origin and path. Requests time out after 20 seconds; rerun into a new evidence directory after resolving failures or rate limiting. Tokens are not refreshed automatically during long audits; expired-token failures are retained as coverage gaps.
+The account scan issues GET requests after obtaining an IAM token from the CLI or exchanging the auditor's API key. It does not change policies, credentials or resource configuration. Required HTTPS destinations are `iam.cloud.ibm.com` and each selected `<region>.iaas.cloud.ibm.com`. TLS verification remains enabled, redirects are refused, and pagination is restricted to the original API origin and path. HTTP requests time out after 20 seconds; CLI authentication commands time out after 45 seconds. Rerun into a new evidence directory after resolving failures or rate limiting. Tokens are not refreshed automatically during long audits; expired-token failures are retained as coverage gaps.
+
+If authentication fails, the script prints a specific failure before the evidence path. A later collection HTTP 403 is an authorization/visibility failure, not proof that login failed. Check which operation failed in `transcript.txt`; do not share token output from `ibmcloud iam bearer-token` or `oauth-tokens`.
 
 ## Test metadata from your IBM VPC workload
 

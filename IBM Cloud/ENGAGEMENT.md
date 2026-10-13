@@ -8,7 +8,7 @@ The automated account scan provides configuration evidence. Test only selected r
 
 ## 1. Service IDs, API keys and least privilege
 
-Run `python audit.py scan --account-id ACCOUNT_ID --out output/iam-review` from this folder with your own locally supplied key. Add the regions in scope for VPC posture.
+Run `python audit.py scan --auth cli --account-id ACCOUNT_ID --out output/iam-review` from this folder with your existing IBM Cloud CLI login. The expected account must match the CLI target. Alternatively, select `--auth api-key` and supply your own key locally. Add the regions in scope for VPC posture.
 
 The tester enumerates service IDs across their groups, enumerates service-ID key metadata, and correlates the identities with direct policies and visible group memberships. Review platform and service roles separately. Check resource group, service instance, resource type/ID, access tags, conditions and inherited grants; a narrow policy does not cancel a broader additive grant.
 
