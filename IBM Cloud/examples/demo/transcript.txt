@@ -1,0 +1,335 @@
+IBM CLOUD | IAM ENGAGEMENT TRANSCRIPT
+Mode: SYNTHETIC DEMONSTRATION — NO CLOUD REQUESTS
+Started: 2026-10-12T16:16:17+00:00
+Prompts below simulate HTTP requests from fixtures; no network requests were executed.
+Secrets are redacted. Review notes are automated assessment, not human sign-off.
+Configuration findings are hypotheses until business need and access are validated.
+
+[2026-10-12T16:16:17+00:00] REVIEW: SYNTHETIC WALKTHROUGH: The following requests and responses are rendered from fixtures. No tester queried a real account. All identifiers are invented.
+
+[2026-10-12T16:16:17+00:00] SYNTHETIC: Enumerate workload identities
+tester@ibm-audit$ curl -sS -X GET 'https://iam.cloud.ibm.com/v1/serviceids/?account_id=00000000000000000000000000000000' -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "serviceids": [
+    {
+      "iam_id": "iam-ServiceId-DEMO-CI",
+      "id": "ServiceId-DEMO-CI",
+      "name": "demo-ci-integration"
+    },
+    {
+      "iam_id": "iam-ServiceId-DEMO-BACKUP",
+      "id": "ServiceId-DEMO-BACKUP",
+      "name": "demo-backup-worker"
+    }
+  ]
+}
+[2026-10-12T16:16:17+00:00] REVIEW: SYNTHETIC: The tester reviewed the returned fixture records and correlated their identifiers with subsequent policy and trust checks.
+
+[2026-10-12T16:16:17+00:00] SYNTHETIC: Enumerate API-key metadata
+tester@ibm-audit$ curl -sS -X GET 'https://iam.cloud.ibm.com/v1/apikeys?account_id=00000000000000000000000000000000' -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "apikeys": [
+    {
+      "created_at": "2025-01-01T00:00:00Z",
+      "iam_id": "iam-ServiceId-DEMO-CI",
+      "id": "ApiKey-DEMO-OLD",
+      "name": "demo-ci-key"
+    }
+  ]
+}
+[2026-10-12T16:16:17+00:00] REVIEW: SYNTHETIC: The tester reviewed the returned fixture records and correlated their identifiers with subsequent policy and trust checks.
+
+[2026-10-12T16:16:17+00:00] SYNTHETIC: Review direct grants and service authorizations
+tester@ibm-audit$ curl -sS -X GET 'https://iam.cloud.ibm.com/v1/policies?account_id=00000000000000000000000000000000' -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "policies": [
+    {
+      "id": "Policy-DEMO-DIRECT",
+      "resources": [
+        {
+          "attributes": [
+            {
+              "name": "accountId",
+              "value": "00000000000000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "roles": [
+        {
+          "role_id": "crn:v1:bluemix:public:iam::::role:Administrator"
+        }
+      ],
+      "subjects": [
+        {
+          "attributes": [
+            {
+              "name": "iam_id",
+              "value": "iam-ServiceId-DEMO-CI"
+            }
+          ]
+        }
+      ],
+      "type": "access"
+    },
+    {
+      "id": "Policy-DEMO-S2S",
+      "resources": [
+        {
+          "attributes": [
+            {
+              "name": "accountId",
+              "value": "00000000000000000000000000000000"
+            },
+            {
+              "name": "serviceName",
+              "value": "kms"
+            }
+          ]
+        }
+      ],
+      "roles": [
+        {
+          "role_id": "crn:v1:bluemix:public:iam::::serviceRole:Reader"
+        }
+      ],
+      "subjects": [
+        {
+          "attributes": [
+            {
+              "name": "accountId",
+              "value": "00000000000000000000000000000000"
+            },
+            {
+              "name": "serviceName",
+              "value": "cloud-object-storage"
+            }
+          ]
+        }
+      ],
+      "type": "authorization"
+    }
+  ]
+}
+[2026-10-12T16:16:18+00:00] REVIEW: SYNTHETIC: The tester reviewed the returned fixture records and correlated their identifiers with subsequent policy and trust checks.
+
+[2026-10-12T16:16:18+00:00] SYNTHETIC: Review inherited workload permissions
+tester@ibm-audit$ curl -sS -X GET 'https://iam.cloud.ibm.com/v2/policies?account_id=00000000000000000000000000000000' -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "policies": [
+    {
+      "control": {
+        "grant": {
+          "roles": [
+            {
+              "role_id": "crn:v1:bluemix:public:iam::::role:Administrator"
+            }
+          ]
+        }
+      },
+      "id": "Policy-DEMO-GROUP",
+      "resource": {
+        "attributes": [
+          {
+            "name": "accountId",
+            "value": "00000000000000000000000000000000"
+          },
+          {
+            "name": "serviceName",
+            "value": "is"
+          }
+        ]
+      },
+      "subject": {
+        "attributes": [
+          {
+            "name": "access_group_id",
+            "value": "AccessGroup-DEMO"
+          }
+        ]
+      },
+      "type": "access"
+    },
+    {
+      "control": {
+        "grant": {
+          "roles": [
+            {
+              "role_id": "crn:v1:bluemix:public:iam::::serviceRole:Reader"
+            }
+          ]
+        }
+      },
+      "id": "Policy-DEMO-NARROW",
+      "resource": {
+        "attributes": [
+          {
+            "name": "accountId",
+            "value": "00000000000000000000000000000000"
+          },
+          {
+            "name": "serviceName",
+            "value": "cloud-object-storage"
+          },
+          {
+            "name": "serviceInstance",
+            "value": "Instance-DEMO-BUCKET"
+          }
+        ]
+      },
+      "subject": {
+        "attributes": [
+          {
+            "name": "iam_id",
+            "value": "iam-ServiceId-DEMO-BACKUP"
+          }
+        ]
+      },
+      "type": "access"
+    }
+  ]
+}
+[2026-10-12T16:16:18+00:00] REVIEW: SYNTHETIC: The tester reviewed the returned fixture records and correlated their identifiers with subsequent policy and trust checks.
+
+[2026-10-12T16:16:18+00:00] SYNTHETIC: Enumerate trusted profiles
+tester@ibm-audit$ curl -sS -X GET 'https://iam.cloud.ibm.com/v1/profiles?account_id=00000000000000000000000000000000' -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "profiles": [
+    {
+      "iam_id": "iam-Profile-DEMO",
+      "id": "Profile-DEMO",
+      "name": "demo-compute-profile"
+    }
+  ]
+}
+[2026-10-12T16:16:18+00:00] REVIEW: SYNTHETIC: The tester reviewed the returned fixture records and correlated their identifiers with subsequent policy and trust checks.
+
+[2026-10-12T16:16:18+00:00] SYNTHETIC: Review profile rules
+tester@ibm-audit$ curl -sS -X GET https://iam.cloud.ibm.com/v1/profiles/Profile-DEMO/rules -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "rules": [
+    {
+      "conditions": [
+        {
+          "claim": "namespace",
+          "operator": "EQUALS",
+          "value": "default"
+        }
+      ],
+      "cr_type": "IKS_SA",
+      "id": "Rule-DEMO",
+      "type": "Profile-CR"
+    }
+  ]
+}
+
+[2026-10-12T16:16:18+00:00] SYNTHETIC: Review profile links
+tester@ibm-audit$ curl -sS -X GET https://iam.cloud.ibm.com/v1/profiles/Profile-DEMO/links -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "links": [
+    {
+      "cr_type": "IKS_SA",
+      "id": "Link-DEMO",
+      "link": {
+        "crn": "crn:v1:bluemix:public:containers-kubernetes:us-south:a/00000000000000000000000000000000::cluster:DEMO",
+        "name": "default",
+        "namespace": "default"
+      }
+    }
+  ]
+}
+
+[2026-10-12T16:16:18+00:00] SYNTHETIC: Review profile identities
+tester@ibm-audit$ curl -sS -X GET https://iam.cloud.ibm.com/v1/profiles/Profile-DEMO/identities -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "identities": [
+    {
+      "iam_id": "iam-ServiceId-DEMO-PARTNER",
+      "identifier": "ServiceId-DEMO-PARTNER",
+      "type": "serviceid"
+    }
+  ]
+}
+
+[2026-10-12T16:16:18+00:00] SYNTHETIC: Correlate access-group membership
+tester@ibm-audit$ curl -sS -X GET https://iam.cloud.ibm.com/v2/groups/AccessGroup-DEMO/members -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "members": [
+    {
+      "iam_id": "iam-ServiceId-DEMO-BACKUP",
+      "type": "serviceid"
+    },
+    {
+      "iam_id": "iam-Profile-DEMO",
+      "type": "profile"
+    }
+  ]
+}
+
+[2026-10-12T16:16:18+00:00] SYNTHETIC: Review account creation controls
+tester@ibm-audit$ curl -sS -X GET https://iam.cloud.ibm.com/v1/accounts/00000000000000000000000000000000/settings/identity -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "restrict_create_platform_apikey": "RESTRICTED",
+  "restrict_create_service_id": "NOT_RESTRICTED"
+}
+
+[2026-10-12T16:16:18+00:00] SYNTHETIC: Review metadata configuration
+tester@ibm-audit$ curl -sS -X GET 'https://us-south.iaas.cloud.ibm.com/v1/instances?version=2025-10-14&generation=2' -H 'Authorization: Bearer [REDACTED]'
+HTTP 200
+{
+  "instances": [
+    {
+      "id": "Instance-DEMO",
+      "metadata_service": {
+        "enabled": true,
+        "protocol": "http",
+        "response_hop_limit": 2
+      },
+      "name": "demo-integration-host"
+    }
+  ]
+}
+[2026-10-12T16:16:18+00:00] REVIEW: Review completed: 10 review items; 3 coverage gaps.
+[2026-10-12T16:16:18+00:00] REVIEW: IAM-001 [HIGH] Broad privileged grant to a workload identity | Policy-DEMO-DIRECT
+[2026-10-12T16:16:18+00:00] REVIEW: The tester queried IAM policies and correlated direct subjects and visible group membership. Policy Policy-DEMO-DIRECT grants ['Administrator'] to ['iam-ServiceId-DEMO-CI'] without a resource-group or instance restriction in at least one resource scope. This is a least-privilege review candidate; required business access has not been supplied.
+[2026-10-12T16:16:18+00:00] REVIEW: Recommended follow-up: Confirm required actions with the workload owner; scope grants to required resources and use narrower roles.
+[2026-10-12T16:16:18+00:00] REVIEW: S2S-002 [MEDIUM] Broad service-to-service authorization | Policy-DEMO-S2S
+[2026-10-12T16:16:18+00:00] REVIEW: The tester reviewed the authorization source and target attributes. At least one side is scoped above an individual instance or resource group. This can extend trust to additional service instances; it is not proof of a confused-deputy exploit.
+[2026-10-12T16:16:18+00:00] REVIEW: Recommended follow-up: Compare source account, source instance, target instance and granted role against the intended integration; test a denied sibling instance in a controlled environment.
+[2026-10-12T16:16:18+00:00] REVIEW: IAM-003 [HIGH] Broad privileged grant to a workload identity | Policy-DEMO-GROUP
+[2026-10-12T16:16:18+00:00] REVIEW: The tester queried IAM policies and correlated direct subjects and visible group membership. Policy Policy-DEMO-GROUP grants ['Administrator'] to ['iam-Profile-DEMO', 'iam-ServiceId-DEMO-BACKUP'] without a resource-group or instance restriction in at least one resource scope. This is a least-privilege review candidate; required business access has not been supplied.
+[2026-10-12T16:16:18+00:00] REVIEW: Recommended follow-up: Confirm required actions with the workload owner; scope grants to required resources and use narrower roles.
+[2026-10-12T16:16:18+00:00] REVIEW: KEY-004 [MEDIUM] Long-lived API key requires lifecycle review | ApiKey-DEMO-OLD
+[2026-10-12T16:16:18+00:00] REVIEW: The tester enumerated API-key metadata and observed a creation age of 649 days, exceeding the engagement threshold of 90 days. Creation age does not prove inactivity, compromise, or noncompliance with IBM policy. Keys inherit their identity's permissions.
+[2026-10-12T16:16:18+00:00] REVIEW: Recommended follow-up: Confirm usage and ownership, rotate through a tested deployment process, and consider compute identity instead of a stored API key.
+[2026-10-12T16:16:18+00:00] REVIEW: TRUST-005 [MEDIUM] Compute trust rule needs boundary validation | Profile-DEMO
+[2026-10-12T16:16:18+00:00] REVIEW: The tester reviewed a compute-resource claim rule without an exact CRN or resource-ID condition recognized by this heuristic. Other conditions may still restrict trust. Resources created later with matching names, namespaces, service accounts or tags may qualify.
+[2026-10-12T16:16:18+00:00] REVIEW: Recommended follow-up: Review every AND condition and alternative rule; identify who can create matching resources or change claims. Test an approved positive control and a disallowed sibling workload.
+[2026-10-12T16:16:18+00:00] REVIEW: TRUST-006 [INFO] Explicit trusted-profile identities require ownership review | Profile-DEMO
+[2026-10-12T16:16:18+00:00] REVIEW: The tester enumerated identities permitted to assume this profile. Explicit trust is expected functionality; business intent and cross-account ownership need verification.
+[2026-10-12T16:16:18+00:00] REVIEW: Recommended follow-up: Validate service IDs, service CRNs and user account restrictions against the approved integration inventory.
+[2026-10-12T16:16:18+00:00] REVIEW: TRUST-007 [MEDIUM] Compute link uses a default Kubernetes identity | Profile-DEMO
+[2026-10-12T16:16:18+00:00] REVIEW: The tester reviewed a direct compute link using a default namespace or service account. Shared workload placement may widen who can use this profile.
+[2026-10-12T16:16:18+00:00] REVIEW: Recommended follow-up: Check Kubernetes RBAC, pod creation and service-account selection permissions; isolate the intended workload identity.
+[2026-10-12T16:16:18+00:00] REVIEW: IMDS-008 [LOW] Metadata uses HTTP | Instance-DEMO
+[2026-10-12T16:16:18+00:00] REVIEW: The tester queried VPC instance configuration and observed enabled metadata over HTTP. This alone does not demonstrate SSRF or token theft.
+[2026-10-12T16:16:18+00:00] REVIEW: Recommended follow-up: Assess image compatibility and enable HTTPS metadata where supported; restrict process access to the local endpoint.
+[2026-10-12T16:16:18+00:00] REVIEW: IMDS-009 [MEDIUM] Metadata response hop limit exceeds one | Instance-DEMO
+[2026-10-12T16:16:18+00:00] REVIEW: The tester observed a metadata response hop limit of 2. This can support additional network hops, including container workloads, when routing permits.
+[2026-10-12T16:16:18+00:00] REVIEW: Recommended follow-up: Confirm the required container topology; minimize the hop limit and validate access from both intended and unintended workload contexts.
+[2026-10-12T16:16:18+00:00] REVIEW: GOV-010 [LOW] Credential or identity creation is not restricted | restrict_create_service_id
+[2026-10-12T16:16:18+00:00] REVIEW: The tester reviewed account IAM settings and observed restrict_create_service_id=NOT_RESTRICTED. This increases the importance of ownership and lifecycle controls.
+[2026-10-12T16:16:18+00:00] REVIEW: Recommended follow-up: Evaluate restricting creation to approved operators and monitor new credentials and service IDs.
+[2026-10-12T16:16:18+00:00] REVIEW: COVERAGE GAP: Synthetic data only; no live account, identity assumption, metadata endpoint, SSRF path or resource access was tested.
+[2026-10-12T16:16:18+00:00] REVIEW: COVERAGE GAP: Demonstration key ages use 2026-10-12 as the fixed assessment date.
+[2026-10-12T16:16:18+00:00] REVIEW: COVERAGE GAP: All rule matches need business-context review; absence of a finding is not a security pass.
