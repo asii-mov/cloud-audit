@@ -472,7 +472,7 @@ def parser():
         if name == "scan":
             sub.add_argument("--key-age-days", type=int, default=90)
         if name == "scan":
-            sub.add_argument("--account-id", default=os.environ.get("IBMCLOUD_ACCOUNT_ID"))
+            sub.add_argument("--account-id", default=os.environ.get("ACCOUNT_ID"))
             sub.add_argument("--region", action="append", default=[], help="Repeat for each VPC region in scope")
         if name == "metadata":
             sub.add_argument("--context", required=True, help="Instance/workload and OS user or container identity for this test")
@@ -495,7 +495,7 @@ def main(argv=None):
             p.error("region must be an IBM regional identifier such as us-south")
     if args.command == "scan":
         if not args.account_id or not re.fullmatch(r"[a-fA-F0-9]{32}", args.account_id):
-            p.error("--account-id or IBMCLOUD_ACCOUNT_ID must contain a 32-character account ID")
+            p.error("--account-id or ACCOUNT_ID must contain a 32-character account ID")
         key = os.environ.get("IBMCLOUD_API_KEY") or os.environ.get("IBM_CLOUD_API_KEY")
         if not key:
             p.error("set IBMCLOUD_API_KEY securely in the process environment")

@@ -52,13 +52,13 @@ In your own shell, supply the key without placing its value in command history:
 ```bash
 read -r -s -p 'IBM Cloud API key: ' IBMCLOUD_API_KEY
 export IBMCLOUD_API_KEY
-export IBMCLOUD_ACCOUNT_ID='YOUR_32_CHARACTER_ACCOUNT_ID'
+export ACCOUNT_ID='YOUR_32_CHARACTER_ACCOUNT_ID'
 python audit.py scan --region us-south --region eu-gb --out output/account-review
 unset IBMCLOUD_API_KEY
 cat output/account-review/transcript.txt
 ```
 
-Use a key scoped to the intended account. Regional VPC calls are skipped with a collection error unless the IAM-issued token's account context matches the selected account. This context check is not an independent JWT signature validation. `--account-id` overrides `IBMCLOUD_ACCOUNT_ID`; `IBM_CLOUD_API_KEY` is also accepted. Omit `--region` for an IAM-only review. The default key-age review threshold is 90 days; change it with `--key-age-days`. It is an engagement threshold, not an IBM-mandated limit.
+Use a key scoped to the intended account. Regional VPC calls are skipped with a collection error unless the IAM-issued token's account context matches the selected account. This context check is not an independent JWT signature validation. `--account-id` overrides `ACCOUNT_ID`; `IBM_CLOUD_API_KEY` is also accepted. Omit `--region` for an IAM-only review. The default key-age review threshold is 90 days; change it with `--key-age-days`. It is an engagement threshold, not an IBM-mandated limit.
 
 The account scan issues GET requests after exchanging the auditor's API key for a token. It does not change policies, credentials or resource configuration. Required HTTPS destinations are `iam.cloud.ibm.com` and each selected `<region>.iaas.cloud.ibm.com`. TLS verification remains enabled, redirects are refused, and pagination is restricted to the original API origin and path. Requests time out after 20 seconds; rerun into a new evidence directory after resolving failures or rate limiting. Tokens are not refreshed automatically during long audits; expired-token failures are retained as coverage gaps.
 
