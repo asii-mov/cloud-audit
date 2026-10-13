@@ -20,4 +20,4 @@ The following sources support the implementation and manual test plan:
 | [Metadata access](https://github.com/ibm-cloud-docs/vpc/blob/4133e597cc1515f14d55fb5c5b72580482c1aa8d/instance_metadata_vpc_access_instance_metadata.md) | Instance metadata GET, regional VPC configuration and sensitive initialization data |
 | [Identity endpoint migration](https://github.com/ibm-cloud-docs/vpc/blob/4133e597cc1515f14d55fb5c5b72580482c1aa8d/metadata-identity-migration.md) | Current `/identity/v1/token` and `/identity/v1/iam_tokens` paths replacing legacy paths |
 
-The live VPC and metadata requests pin API version `2025-10-14`. Review IBM's change logs and current service documentation before expanding the supported API surface. Synthetic fixtures model selected documented response shapes; they are not an IBM compatibility certification.
+The live VPC and metadata requests pin API version `2025-10-14`. Review IBM's change logs and current service documentation before expanding the supported API surface. Live IBM compatibility has not been validated in an account.

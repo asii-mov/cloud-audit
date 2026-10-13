@@ -2,19 +2,20 @@
 
 Python 3.10+; standard library only. No package installation is needed.
 
-This toolkit collects IAM configuration, correlates workload identities with grants, and writes an engagement-style transcript that can be displayed with `cat`. Development and validation use **synthetic data only**. You run live commands separately in your own account.
+The standalone `audit.py` script collects IAM configuration, correlates workload identities with grants, and writes an engagement-style transcript that can be displayed with `cat`. Copy this one Python file to the machine where you will run the audit; no other source files are required. You run the commands in your own account.
 
-## Try the screenshot report
+## Commands and report output
 
 From the repository root:
 
 ```bash
 cd 'IBM Cloud'
-python audit.py demo --out output/demo
-cat output/demo/transcript.txt
+python audit.py --help
+python audit.py scan --help
+python audit.py metadata --help
 ```
 
-Use a new output path for each run. The tool refuses to overwrite an existing directory. A generated example is included at [examples/demo/transcript.txt](examples/demo/transcript.txt).
+Use `scan` for the account review and `metadata` for a selected local workload, as described below. Use a new output path for each run; the tool refuses to overwrite an existing directory. After running an account review, display its terminal-style report with `cat output/account-review/transcript.txt`.
 
 Each run produces:
 
@@ -24,7 +25,7 @@ Each run produces:
 | `report.json` | Redacted collected inventory, request events and structured findings |
 | `SHA256SUMS.json` | SHA-256 hashes of both evidence files; useful for detecting accidental changes, not a signed attestation |
 
-The displayed `curl` commands are readable equivalents of Python HTTP requests. Python executes the requests; the transcript is not a claim that someone typed `curl`. Demo requests are explicitly labelled synthetic. In live reports, “the tester reviewed” describes automated rule evaluation; the report still needs human validation. Credentials and token fields are redacted. Account IDs, resource names, memberships and policies remain in live evidence, so review files before sharing. Output is excluded from Git.
+The displayed `curl` commands are readable equivalents of Python HTTP requests. Python executes the requests; the transcript is not a claim that someone typed `curl`. In reports, “the tester reviewed” describes automated rule evaluation; the report still needs human validation. Credentials and token fields are redacted. Account IDs, resource names, memberships and policies remain in evidence, so review files before sharing. Output is excluded from Git.
 
 ## Coverage
 
@@ -63,7 +64,7 @@ The account scan issues GET requests after exchanging the auditor's API key for 
 
 ## Test metadata from your IBM VPC workload
 
-Run this command **inside the selected IBM VPC instance or container**, as the OS/workload identity whose access is being reviewed. The context label is supplied by you, not independently attested by the tool. No metadata requests are issued by `demo` or `scan`.
+Run this command **inside the selected IBM VPC instance or container**, as the OS/workload identity whose access is being reviewed. The context label is supplied by you, not independently attested by the tool. No metadata requests are issued by `scan`.
 
 ```bash
 python audit.py metadata \
@@ -87,12 +88,13 @@ Use a separate run with `--expect-profile allowed` for the positive control. To 
 
 See [ENGAGEMENT.md](ENGAGEMENT.md) for interpretation, further attack vectors and a report narrative template. The current implementation targets IBM VPC metadata, not PowerVS or bare-metal metadata.
 
-## Validation and exit status
+## Offline checks and exit status
 
 ```bash
-python -m unittest discover -s tests -v
+python -m py_compile audit.py
+python audit.py --help
 ```
 
-Tests mock network operations and use invented identities, policies and tokens. They exercise the full demo/report workflow, IAM policy normalization, group inheritance, partial collection, pagination, redaction and metadata positive/negative outcomes. No cloud credentials are needed.
+These commands check syntax and CLI loading without credentials or network requests. They do not validate access to IBM Cloud or the account's security posture.
 
 Exit `0` means the selected operation completed; findings can still be present. Exit `2` indicates invalid arguments or a collection/probe failure. Coverage limitations remain explicit even after exit `0`. Live IBM compatibility has not been validated in an account.
